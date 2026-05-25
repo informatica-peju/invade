@@ -1,0 +1,11 @@
+services:
+  router-analyzer:
+    build: .
+    container_name: router-analyzer
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
