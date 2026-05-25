@@ -18,15 +18,23 @@ def get_target(host: str):
     raise ValueError(f"Host {host} not found in inventory")
 
 
-def parse_table(text: str):
-    rows = []
-    for line in text.splitlines():
-        line = line.rstrip()
+def parse_ppp_active_records(text: str):
+    records = []
+    current = []
+    for raw in text.splitlines():
+        line = raw.rstrip()
         if not line or line.startswith("Flags:"):
             continue
-        if line.lstrip().startswith(tuple(str(i) for i in range(10))) or line.lstrip().startswith("D"):
-            rows.append(line)
-    return rows
+        if line.lstrip().startswith(tuple(str(i) for i in range(10))):
+            if current:
+                records.append(" ".join(current))
+            current = [line.strip()]
+        else:
+            if current:
+                current.append(line.strip())
+    if current:
+        records.append(" ".join(current))
+    return records
 
 
 def main():
@@ -60,17 +68,33 @@ def main():
     pppoe_ifaces = [ln for ln in iface_text.splitlines() if "type=pppoe-in" in ln]
     ovpn_ifaces = [ln for ln in iface_text.splitlines() if "type=ovpn-in" in ln]
 
-    ppp_active_lines = parse_table(ppp_active_text)
-    active_ovpn = [ln for ln in ppp_active_lines if "service=ovpn" in ln]
-    active_pppoe = [ln for ln in ppp_active_lines if "service=pppoe" in ln]
+    ppp_active_records = parse_ppp_active_records(ppp_active_text)
+    active_ovpn = [ln for ln in ppp_active_records if "service=ovpn" in ln]
+    active_pppoe = [ln for ln in ppp_active_records if "service=pppoe" in ln]
+
+    def extract_name(record: str):
+        marker = "name=\""
+        if marker in record:
+            s = record.split(marker, 1)[1]
+            return s.split("\"", 1)[0]
+        marker2 = "name="
+        if marker2 in record:
+            s = record.split(marker2, 1)[1]
+            return s.split(" ", 1)[0]
+        return ""
+
+    active_pppoe_names = sorted([n for n in (extract_name(r) for r in active_pppoe) if n])
+    active_ovpn_names = sorted([n for n in (extract_name(r) for r in active_ovpn) if n])
 
     summary = {
         "host": args.host,
         "pppoe_interfaces_detected": len(pppoe_ifaces),
         "ovpn_interfaces_detected": len(ovpn_ifaces),
-        "ppp_active_total_rows": len(ppp_active_lines),
+        "ppp_active_total_rows": len(ppp_active_records),
         "ppp_active_pppoe_rows": len(active_pppoe),
         "ppp_active_ovpn_rows": len(active_ovpn),
+        "ppp_active_pppoe_names": active_pppoe_names,
+        "ppp_active_ovpn_names": active_ovpn_names,
         "output_dir": str(outdir),
     }
 
