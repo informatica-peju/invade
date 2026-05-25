@@ -24,6 +24,8 @@ data/processed/*
 !data/processed/.gitkeep
 reports/*
 !reports/.gitkeep
+backups/*
+!backups/.gitkeep
 
 # Editors / OS
 .vscode/
