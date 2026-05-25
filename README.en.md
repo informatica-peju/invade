@@ -51,7 +51,16 @@ python scripts/collect_configs.py
 python scripts/diagnose_path.py
 python scripts/read_only_audit.py
 python scripts/analyze_snapshot.py
+python scripts/dns_static_toolkit.py backup --host 10.8.0.1
+python scripts/dns_static_toolkit.py normalize-apply --host 10.8.0.1
+python scripts/dns_static_toolkit.py test --host 10.8.0.1
 ```
+
+## DNS Static Toolkit
+Use `scripts/dns_static_toolkit.py` for repetitive DNS static maintenance on MikroTik:
+- `backup`: creates timestamped backup under `backups/`
+- `normalize-apply`: rebuilds static DNS entries in an organized format, converts simple regex suffix rules to `name + match-subdomain=yes`, and keeps a local rollback artifact
+- `test`: runs quick resolution checks and verifies no `regexp=` entries remain
 
 ## Inventory Format
 Each JSON entry represents one device.
