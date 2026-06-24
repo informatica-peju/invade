@@ -22,7 +22,7 @@ def rule_exists(nat_detail: str, internal_ip: str, ports: str, interface_list: s
     blocks = []
     current = []
     for line in nat_detail.splitlines():
-        if line.startswith(" ") and line.strip()[:1].isdigit():
+        if line.strip()[:1].isdigit():
             if current:
                 blocks.append(" ".join(current))
             current = [line]
