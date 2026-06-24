@@ -19,14 +19,30 @@ def get_target(host: str):
 
 
 def rule_exists(nat_detail: str, internal_ip: str, ports: str, interface_list: str):
-    return (
-        "chain=srcnat" in nat_detail
-        and "action=masquerade" in nat_detail
-        and f"dst-address={internal_ip}" in nat_detail
-        and f"in-interface-list={interface_list}" in nat_detail
-        and f"dst-port={ports}" in nat_detail
-        and "disabled=yes" not in nat_detail
-    )
+    blocks = []
+    current = []
+    for line in nat_detail.splitlines():
+        if line.startswith(" ") and line.strip()[:1].isdigit():
+            if current:
+                blocks.append(" ".join(current))
+            current = [line]
+        elif current:
+            current.append(line)
+    if current:
+        blocks.append(" ".join(current))
+
+    for block in blocks:
+        if " X " in f" {block} ":
+            continue
+        if (
+            "chain=srcnat" in block
+            and "action=masquerade" in block
+            and f"dst-address={internal_ip}" in block
+            and f"in-interface-list={interface_list}" in block
+            and f"dst-port={ports}" in block
+        ):
+            return True
+    return False
 
 
 def main():
