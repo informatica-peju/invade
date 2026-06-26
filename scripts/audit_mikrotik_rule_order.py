@@ -38,7 +38,7 @@ def collect_commands() -> list[str]:
 def parse_rules(text: str) -> list[dict]:
     rules = []
     current = None
-    rule_start = re.compile(r"^\s*(?P<num>\d+)\s*(?P<flags>[A-ZXI D]*)\s*(?:;;; (?P<comment>.*))?$")
+    rule_start = re.compile(r"^\s*(?P<num>\d+)\s*(?P<flags>[A-ZXI D]*)(?P<rest>.*)$")
     kv_re = re.compile(r'([A-Za-z0-9_-]+)=("[^"]*"|\S+)')
 
     for line in text.splitlines():
@@ -46,12 +46,19 @@ def parse_rules(text: str) -> list[dict]:
         if match:
             if current:
                 rules.append(current)
+            rest = (match.group("rest") or "").strip()
+            comment = ""
+            if rest.startswith(";;;"):
+                comment = rest[3:].strip()
             current = {
                 "num": int(match.group("num")),
                 "flags": (match.group("flags") or "").strip(),
-                "comment": (match.group("comment") or "").strip(),
+                "comment": comment,
                 "raw": [line.rstrip()],
             }
+            if not comment:
+                for key, value in kv_re.findall(rest):
+                    current[key] = value.strip('"')
             continue
 
         if current and line.strip():
@@ -112,8 +119,9 @@ def audit_filter(filter_rules: list[dict]) -> list[dict]:
     )
     add_check(
         checks,
-        "Legacy SIP input accepts disabled",
-        all(is_disabled(rule) for rule in legacy_tcp_rules + legacy_udp_rules) and bool(legacy_tcp_rules + legacy_udp_rules),
+        "Legacy SIP input accepts absent or disabled",
+        not (legacy_tcp_rules + legacy_udp_rules)
+        or all(is_disabled(rule) for rule in legacy_tcp_rules + legacy_udp_rules),
         f"ACEITA-SIP-TCP={legacy_tcp}, ACEITA-SIP-UDP={legacy_udp}",
         "critical",
     )
