@@ -33,7 +33,7 @@ def extract_source_ips(text: str):
 
 
 FLOW_RE = re.compile(
-    r"(?P<prefix>[\w-]+)?\s*(?P<action>dstnat|srcnat|drop|forward|input)?:?.*?"
+    r"firewall,\w+\s+(?P<prefix>[\w-]+)?\s*(?P<action>dstnat|srcnat|drop|forward|input)?:?.*?"
     r"connection-state:(?P<state>[\w,-]+).*?"
     r"proto (?P<proto>\w+), (?P<src>(?:\d{1,3}\.){3}\d{1,3}):(?P<src_port>\d+)"
     r"->(?P<dst>(?:\d{1,3}\.){3}\d{1,3}):(?P<dst_port>\d+)",
@@ -43,9 +43,13 @@ FLOW_RE = re.compile(
 
 def parse_firewall_events(text: str):
     events = []
+    seen_lines = set()
     for line in text.splitlines():
         if "firewall" not in line:
             continue
+        if line in seen_lines:
+            continue
+        seen_lines.add(line)
         match = FLOW_RE.search(line)
         if not match:
             continue
