@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Collect MikroTik warnings/errors and identify external SIP/5060 log sources."""
+"""Collect MikroTik warnings/errors and summarize firewall/security log events."""
 
 import argparse
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -32,6 +32,66 @@ def extract_source_ips(text: str):
     return candidates
 
 
+FLOW_RE = re.compile(
+    r"(?P<prefix>[\w-]+)?\s*(?P<action>dstnat|srcnat|drop|forward|input)?:?.*?"
+    r"connection-state:(?P<state>[\w,-]+).*?"
+    r"proto (?P<proto>\w+), (?P<src>(?:\d{1,3}\.){3}\d{1,3}):(?P<src_port>\d+)"
+    r"->(?P<dst>(?:\d{1,3}\.){3}\d{1,3}):(?P<dst_port>\d+)",
+    re.IGNORECASE,
+)
+
+
+def parse_firewall_events(text: str):
+    events = []
+    for line in text.splitlines():
+        if "firewall" not in line:
+            continue
+        match = FLOW_RE.search(line)
+        if not match:
+            continue
+        event = match.groupdict()
+        event["line"] = line.strip()
+        events.append(event)
+    return events
+
+
+def summarize_firewall_events(events):
+    by_source = Counter(event["src"] for event in events)
+    by_destination = Counter(f'{event["dst"]}:{event["dst_port"]}' for event in events)
+    by_action = Counter((event.get("action") or "unknown").lower() for event in events)
+    by_state = Counter(event["state"] for event in events)
+    by_prefix = Counter((event.get("prefix") or "unknown").strip() for event in events)
+
+    inbound_5060 = Counter()
+    internal_to_external = defaultdict(Counter)
+    for event in events:
+        if event["dst_port"] == "5060" and event["dst"].startswith("186.232.145."):
+            inbound_5060[event["src"]] += 1
+        if event["src"].startswith("192.168.199.") or event["src"].startswith("10."):
+            internal_to_external[event["dst"]][event["src"]] += 1
+
+    correlated = []
+    for external_ip, count in inbound_5060.items():
+        if external_ip in internal_to_external:
+            correlated.append(
+                {
+                    "external_ip": external_ip,
+                    "inbound_5060_hits": count,
+                    "internal_sources": dict(internal_to_external[external_ip]),
+                }
+            )
+
+    return {
+        "top_sources": by_source.most_common(25),
+        "top_destinations": by_destination.most_common(25),
+        "by_action": by_action.most_common(),
+        "by_state": by_state.most_common(),
+        "by_prefix": by_prefix.most_common(25),
+        "inbound_5060_sources": inbound_5060.most_common(25),
+        "external_ips_with_internal_traffic": correlated,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze MikroTik logs for errors/warnings and external SIP scans")
     parser.add_argument("--host", required=True, help="MikroTik host from inventory")
@@ -43,8 +103,10 @@ def main():
         "/system clock print",
         '/log print without-paging where topics~"warning|error|critical"',
         f'/log print without-paging where message~"{args.sip_filter}"',
+        '/log print without-paging where message~"drop-sip-wan|drop|denied|invalid|5060"',
         "/ip firewall nat print stats detail",
         "/ip firewall filter print stats detail",
+        "/ip firewall filter print detail",
     ]
     out = run_commands(target, cmds, defaults)
 
@@ -58,13 +120,17 @@ def main():
 
     warnings = out['/log print without-paging where topics~"warning|error|critical"']
     sip_logs = out[f'/log print without-paging where message~"{args.sip_filter}"']
+    security_logs = out['/log print without-paging where message~"drop-sip-wan|drop|denied|invalid|5060"']
+    firewall_events = parse_firewall_events("\n".join([sip_logs, security_logs]))
     external_ips = Counter(extract_source_ips(sip_logs))
 
     summary = {
         "host": args.host,
         "warning_error_line_count": len([line for line in warnings.splitlines() if line.strip()]),
         "sip_log_line_count": len([line for line in sip_logs.splitlines() if line.strip()]),
+        "security_log_line_count": len([line for line in security_logs.splitlines() if line.strip()]),
         "external_sip_source_ips": external_ips.most_common(),
+        "firewall_event_summary": summarize_firewall_events(firewall_events),
         "output_dir": str(outdir),
     }
     (outdir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
