@@ -100,14 +100,20 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze MikroTik logs for errors/warnings and external SIP scans")
     parser.add_argument("--host", required=True, help="MikroTik host from inventory")
     parser.add_argument("--sip-filter", default="5060|t-central|sip|SIP", help="Regex for SIP/5060-related log lines")
+    parser.add_argument(
+        "--security-filter",
+        default="drop-wan|drop-sip-wan|drop|denied|invalid|5060|5061",
+        help="Regex for security-relevant firewall log lines",
+    )
     args = parser.parse_args()
 
     target, defaults = get_target(args.host)
+    security_cmd = f'/log print without-paging where message~"{args.security_filter}"'
     cmds = [
         "/system clock print",
         '/log print without-paging where topics~"warning|error|critical"',
         f'/log print without-paging where message~"{args.sip_filter}"',
-        '/log print without-paging where message~"drop-sip-wan|drop|denied|invalid|5060"',
+        security_cmd,
         "/ip firewall nat print stats detail",
         "/ip firewall filter print stats detail",
         "/ip firewall filter print detail",
@@ -124,7 +130,7 @@ def main():
 
     warnings = out['/log print without-paging where topics~"warning|error|critical"']
     sip_logs = out[f'/log print without-paging where message~"{args.sip_filter}"']
-    security_logs = out['/log print without-paging where message~"drop-sip-wan|drop|denied|invalid|5060"']
+    security_logs = out[security_cmd]
     firewall_events = parse_firewall_events("\n".join([sip_logs, security_logs]))
     external_ips = Counter(extract_source_ips(sip_logs))
 
