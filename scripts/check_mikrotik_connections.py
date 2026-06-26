@@ -75,6 +75,18 @@ def has_reply_evidence(record: dict) -> bool:
     return False
 
 
+def build_commands(ips: list[str], protocol: str) -> list[str]:
+    commands = []
+    for ip in ips:
+        commands.extend(
+            [
+                f'/ip firewall connection print detail without-paging where protocol={protocol} and src-address~"{ip}"',
+                f'/ip firewall connection print detail without-paging where protocol={protocol} and reply-dst-address~"{ip}"',
+            ]
+        )
+    return commands
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Check active MikroTik conntrack entries for selected IPs")
     parser.add_argument("--host", required=True, help="MikroTik host from inventory")
@@ -86,11 +98,9 @@ def main() -> None:
 
     ips = load_ips(args)
     target, defaults = get_target(args.host)
-    commands = [
-        f"/ip firewall connection print detail where protocol={args.protocol}",
-    ]
+    commands = build_commands(ips, args.protocol)
     results = run_commands(target, commands, defaults)
-    raw = results[commands[0]]
+    raw = "\n\n".join(f"$ {cmd}\n{output}" for cmd, output in results.items())
     records = parse_connection_blocks(raw)
 
     summary_rows = []
