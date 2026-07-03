@@ -118,13 +118,14 @@ install_docker_apt() {
 
   info "Configurando chave GPG do repositório Docker"
   run_as_root install -m 0755 -d /etc/apt/keyrings
-  if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
-    curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "${ID}")/gpg \
-      | run_as_root gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    run_as_root chmod a+r /etc/apt/keyrings/docker.gpg
-  else
-    info "Chave GPG do Docker já existe; reaproveitando"
-  fi
+  local keyring_tmp
+  keyring_tmp="$(mktemp)"
+  curl -fsSL "https://download.docker.com/linux/$(apt_repo_distro)/gpg" -o "${keyring_tmp}"
+  run_as_root rm -f /etc/apt/keyrings/docker.gpg
+  run_as_root gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg "${keyring_tmp}"
+  run_as_root chmod a+r /etc/apt/keyrings/docker.gpg
+  rm -f "${keyring_tmp}"
+  info "Chave GPG do Docker atualizada"
 
   ARCH="$(dpkg --print-architecture)"
   CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
