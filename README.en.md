@@ -24,6 +24,7 @@ Docker is used to make tool acquisition and execution consistent across environm
 - `scripts/diagnose_path.py`: targeted path troubleshooting (routing/firewall/connectivity)
 - `scripts/read_only_audit.py`: non-invasive read-only audit workflow
 - `scripts/audit_linux_debian_ubuntu.py`: read-only audit for Debian/Ubuntu servers
+- `scripts/audit_linux_cron.py`: cron and systemd timer discovery
 - `scripts/analyze_snapshot.py`: basic report generator from collected snapshots
 - `configs/inventory.example.json`: inventory template
 - `configs/inventory.json`: local inventory with credentials (ignored by Git)
@@ -56,6 +57,7 @@ python scripts/collect_configs.py
 python scripts/diagnose_path.py
 python scripts/read_only_audit.py
 python scripts/audit_linux_debian_ubuntu.py --host 10.0.0.197
+python scripts/audit_linux_cron.py --host 10.0.0.197
 python scripts/analyze_snapshot.py
 python scripts/dns_static_toolkit.py backup --host 10.8.0.1
 python scripts/dns_static_toolkit.py normalize-apply --host 10.8.0.1
