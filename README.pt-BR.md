@@ -31,21 +31,25 @@ Docker foi usado para simplificar aquisição e execução das ferramentas:
 - `backups/`: área local de backup (ignorada, exceto `.gitkeep`)
 
 ## Início rápido
-1. Criar arquivo de ambiente local:
+1. Instalar Docker, preparar `.env` e o inventário local:
+```bash
+./setup.sh
+```
+2. Criar arquivo de ambiente local, se ainda não existir:
 ```bash
 cp .env.example .env
 ```
-2. Criar inventário local:
+3. Criar inventário local, se ainda não existir:
 ```bash
 cp configs/inventory.example.json configs/inventory.json
 ```
-3. Editar inventário com alvos/credenciais reais.
-4. Subir e entrar no ambiente:
+4. Editar inventário com alvos/credenciais reais.
+5. Subir e entrar no ambiente:
 ```bash
 docker compose build
 docker compose run --rm router-analyzer bash
 ```
-5. Dentro do container, executar fluxos:
+6. Dentro do container, executar fluxos:
 ```bash
 python scripts/collect_configs.py
 python scripts/diagnose_path.py

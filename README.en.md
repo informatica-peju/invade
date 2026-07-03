@@ -31,21 +31,25 @@ Docker is used to make tool acquisition and execution consistent across environm
 - `backups/`: local backup workspace (ignored except `.gitkeep`)
 
 ## Quick Start
-1. Create local environment file:
+1. Install Docker and prepare local project files:
+```bash
+./setup.sh
+```
+2. Create local environment file, if it does not already exist:
 ```bash
 cp .env.example .env
 ```
-2. Create local inventory:
+3. Create local inventory, if it does not already exist:
 ```bash
 cp configs/inventory.example.json configs/inventory.json
 ```
-3. Edit inventory with real targets and credentials.
-4. Build and run:
+4. Edit inventory with real targets and credentials.
+5. Build and run:
 ```bash
 docker compose build
 docker compose run --rm router-analyzer bash
 ```
-5. Inside container, run workflows:
+6. Inside container, run workflows:
 ```bash
 python scripts/collect_configs.py
 python scripts/diagnose_path.py
