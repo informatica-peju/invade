@@ -67,6 +67,31 @@ have_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
+apt_repo_distro() {
+  local id id_like
+  id="$(. /etc/os-release && echo "${ID}")"
+  id_like="$(. /etc/os-release && echo "${ID_LIKE:-}")"
+
+  case " ${id} ${id_like} " in
+    *" ubuntu "*)
+      echo "ubuntu"
+      ;;
+    *" debian "*)
+      echo "debian"
+      ;;
+    *)
+      echo "${id}"
+      ;;
+  esac
+}
+
+reset_docker_apt_repo() {
+  if [[ -f /etc/apt/sources.list.d/docker.list ]]; then
+    info "Removendo repositório Docker antigo para evitar conflito"
+    run_as_root rm -f /etc/apt/sources.list.d/docker.list
+  fi
+}
+
 detect_pm() {
   if have_cmd apt-get; then
     echo "apt"
@@ -85,6 +110,7 @@ detect_pm() {
 
 install_docker_apt() {
   info "Instalando Docker via apt"
+  reset_docker_apt_repo
   info "Atualizando índice de pacotes"
   run_as_root apt-get update
   info "Instalando pré-requisitos do repositório Docker"
@@ -102,9 +128,10 @@ install_docker_apt() {
 
   ARCH="$(dpkg --print-architecture)"
   CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
-  info "Adicionando repositório Docker para ${CODENAME} (${ARCH})"
+  DOCKER_DISTRO="$(apt_repo_distro)"
+  info "Adicionando repositório Docker para ${DOCKER_DISTRO} ${CODENAME} (${ARCH})"
   echo \
-    "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "${ID}") ${CODENAME} stable" \
+    "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/${DOCKER_DISTRO} ${CODENAME} stable" \
     | run_as_root tee /etc/apt/sources.list.d/docker.list >/dev/null
 
   info "Instalando Docker Engine e plugin do Compose"
