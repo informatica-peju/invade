@@ -3,10 +3,38 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEEDS_SUDO=0
+START_TS="$(date +%s)"
 
 if [[ "${EUID}" -ne 0 ]]; then
   NEEDS_SUDO=1
 fi
+
+log() {
+  local level="$1"
+  shift
+  printf '[%s] %s\n' "${level}" "$*"
+}
+
+info() {
+  log "INFO" "$@"
+}
+
+warn() {
+  log "WARN" "$@"
+}
+
+error() {
+  log "ERROR" "$@" >&2
+}
+
+finish() {
+  local end_ts elapsed
+  end_ts="$(date +%s)"
+  elapsed="$((end_ts - START_TS))"
+  info "Concluído em ${elapsed}s"
+}
+
+trap 'error "Falha na linha ${LINENO}. Verifique a saída acima."' ERR
 
 run_as_root() {
   if [[ "${NEEDS_SUDO}" -eq 1 ]]; then
@@ -37,54 +65,77 @@ detect_pm() {
 }
 
 install_docker_apt() {
+  info "Instalando Docker via apt"
+  info "Atualizando índice de pacotes"
   run_as_root apt-get update
+  info "Instalando pré-requisitos do repositório Docker"
   run_as_root apt-get install -y ca-certificates curl gnupg lsb-release
 
+  info "Configurando chave GPG do repositório Docker"
   run_as_root install -m 0755 -d /etc/apt/keyrings
   if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
     curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "${ID}")/gpg \
       | run_as_root gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     run_as_root chmod a+r /etc/apt/keyrings/docker.gpg
+  else
+    info "Chave GPG do Docker já existe; reaproveitando"
   fi
 
   ARCH="$(dpkg --print-architecture)"
   CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME}")"
+  info "Adicionando repositório Docker para ${CODENAME} (${ARCH})"
   echo \
     "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "${ID}") ${CODENAME} stable" \
     | run_as_root tee /etc/apt/sources.list.d/docker.list >/dev/null
 
+  info "Instalando Docker Engine e plugin do Compose"
   run_as_root apt-get update
   run_as_root apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  info "Habilitando serviço docker"
   run_as_root systemctl enable --now docker
 }
 
 install_docker_dnf() {
+  info "Instalando Docker via dnf"
+  info "Instalando dependências do repositório"
   run_as_root dnf -y install dnf-plugins-core
+  info "Adicionando repositório Docker"
   run_as_root dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  info "Instalando Docker Engine e plugin do Compose"
   run_as_root dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  info "Habilitando serviço docker"
   run_as_root systemctl enable --now docker
 }
 
 install_docker_pacman() {
+  info "Instalando Docker via pacman"
+  info "Instalando pacotes docker e docker-compose"
   run_as_root pacman -Sy --noconfirm docker docker-compose
+  info "Habilitando serviço docker"
   run_as_root systemctl enable --now docker
 }
 
 ensure_project_files() {
   if [[ ! -f "${ROOT_DIR}/.env" && -f "${ROOT_DIR}/.env.example" ]]; then
     cp "${ROOT_DIR}/.env.example" "${ROOT_DIR}/.env"
-    echo "[OK] Criado .env a partir do exemplo."
+    info "Criado .env a partir do exemplo"
+  elif [[ -f "${ROOT_DIR}/.env" ]]; then
+    info ".env já existe; mantendo arquivo atual"
   fi
 
   if [[ ! -f "${ROOT_DIR}/configs/inventory.json" && -f "${ROOT_DIR}/configs/inventory.example.json" ]]; then
     cp "${ROOT_DIR}/configs/inventory.example.json" "${ROOT_DIR}/configs/inventory.json"
-    echo "[OK] Criado configs/inventory.json a partir do exemplo."
+    info "Criado configs/inventory.json a partir do exemplo"
+  elif [[ -f "${ROOT_DIR}/configs/inventory.json" ]]; then
+    info "configs/inventory.json já existe; mantendo arquivo atual"
   fi
 }
 
 main() {
   local pm
+  info "Iniciando bootstrap do projeto em ${ROOT_DIR}"
   pm="$(detect_pm)"
+  info "Gerenciador de pacotes detectado: ${pm}"
 
   case "${pm}" in
     apt)
@@ -97,22 +148,22 @@ main() {
       install_docker_pacman
       ;;
     *)
-      echo "Nenhum gerenciador suportado encontrado. Este script espera apt, dnf ou pacman." >&2
+      error "Nenhum gerenciador suportado encontrado. Este script espera apt, dnf ou pacman."
       exit 1
       ;;
   esac
 
   if [[ "${NEEDS_SUDO}" -eq 1 ]] && getent group docker >/dev/null 2>&1; then
+    info "Adicionando usuário ao grupo docker"
     run_as_root usermod -aG docker "${SUDO_USER:-$USER}" || true
-    echo "[OK] Usuário adicionado ao grupo docker. Faça logout/login para a mudança valer."
+    warn "Usuário adicionado ao grupo docker. Faça logout/login para a mudança valer."
   fi
 
   ensure_project_files
 
-  echo
-  echo "[OK] Docker instalado e projeto preparado."
-  echo "Próximo passo:"
-  echo "  cd \"${ROOT_DIR}\" && docker compose build"
+  info "Docker instalado e projeto preparado"
+  info "Próximo passo: cd \"${ROOT_DIR}\" && docker compose build"
 }
 
 main "$@"
+finish
