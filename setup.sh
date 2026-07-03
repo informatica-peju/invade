@@ -174,8 +174,11 @@ main() {
 
   if [[ "${NEEDS_SUDO}" -eq 1 ]] && getent group docker >/dev/null 2>&1; then
     info "Adicionando usuário ao grupo docker"
-    run_as_root usermod -aG docker "${SUDO_USER:-$USER}" || true
-    warn "Usuário adicionado ao grupo docker. Faça logout/login para a mudança valer."
+    if run_as_root usermod -aG docker "${SUDO_USER:-$USER}"; then
+      warn "Usuário adicionado ao grupo docker. Faça logout/login para a mudança valer."
+    else
+      warn "Não foi possível adicionar o usuário ao grupo docker; faça isso manualmente se precisar usar Docker sem sudo."
+    fi
   fi
 
   ensure_project_files
