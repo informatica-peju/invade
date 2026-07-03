@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEEDS_SUDO=0
 START_TS="$(date +%s)"
+EXIT_CODE=0
 
 if [[ "${EUID}" -ne 0 ]]; then
   NEEDS_SUDO=1
@@ -12,7 +13,7 @@ fi
 log() {
   local level="$1"
   shift
-  printf '[%s] %s\n' "${level}" "$*"
+  printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "${level}" "$*"
 }
 
 info() {
@@ -27,14 +28,32 @@ error() {
   log "ERROR" "$@" >&2
 }
 
-finish() {
-  local end_ts elapsed
-  end_ts="$(date +%s)"
-  elapsed="$((end_ts - START_TS))"
-  info "Concluído em ${elapsed}s"
+on_err() {
+  local line="$1"
+  local command="$2"
+  local func="${3:-main}"
+  error "Falha em ${func} na linha ${line}: ${command}"
 }
 
-trap 'error "Falha na linha ${LINENO}. Verifique a saída acima."' ERR
+finish() {
+  local end_ts elapsed status_label
+  end_ts="$(date +%s)"
+  elapsed="$((end_ts - START_TS))"
+  if [[ "${EXIT_CODE}" -eq 0 ]]; then
+    status_label="SUCESSO"
+  else
+    status_label="FALHA(${EXIT_CODE})"
+  fi
+  log "INFO" "Finalizando ${status_label} em ${elapsed}s"
+}
+
+on_exit() {
+  EXIT_CODE="$1"
+  finish
+}
+
+trap 'on_err "${LINENO}" "${BASH_COMMAND}" "${FUNCNAME[0]:-main}"' ERR
+trap 'on_exit "$?"' EXIT
 
 run_as_root() {
   if [[ "${NEEDS_SUDO}" -eq 1 ]]; then
@@ -166,4 +185,3 @@ main() {
 }
 
 main "$@"
-finish
