@@ -25,6 +25,7 @@ Docker foi usado para simplificar aquisição e execução das ferramentas:
 - `scripts/read_only_audit.py`: auditoria não invasiva (somente leitura)
 - `scripts/audit_linux_debian_ubuntu.py`: auditoria read-only para servidores Debian/Ubuntu
 - `scripts/audit_linux_cron.py`: busca agendamentos cron e timers do systemd
+- `scripts/audit_linux_user_cron.py`: busca crontabs de todos os usuários
 - `scripts/analyze_snapshot.py`: resumo básico dos snapshots coletados
 - `configs/inventory.example.json`: modelo de inventário
 - `configs/inventory.json`: inventário local com credenciais (ignorado pelo Git)
@@ -58,6 +59,7 @@ python scripts/diagnose_path.py
 python scripts/read_only_audit.py
 python scripts/audit_linux_debian_ubuntu.py --host 10.0.0.197
 python scripts/audit_linux_cron.py --host 10.0.0.197
+python scripts/audit_linux_user_cron.py --host 10.0.0.245
 python scripts/analyze_snapshot.py
 python scripts/dns_static_toolkit.py backup --host 10.8.0.1
 python scripts/dns_static_toolkit.py normalize-apply --host 10.8.0.1
