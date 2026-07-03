@@ -18,7 +18,7 @@ def load_inventory(file_path: str) -> List[Dict]:
 def netmiko_type(device_type: str) -> str:
     if device_type == "mikrotik":
         return "mikrotik_routeros"
-    if device_type == "openwrt":
+    if device_type in {"openwrt", "ubuntu", "ubuntu-server", "debian", "linux"}:
         return "linux"
     raise ValueError(f"Tipo de dispositivo não suportado: {device_type}")
 
