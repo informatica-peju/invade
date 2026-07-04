@@ -15,3 +15,6 @@ cp configs/inventory.example.json configs/inventory.json
 docker compose build
 docker compose run --rm router-analyzer python scripts/collect_configs.py
 ```
+
+## Extra Docker Clone
+- `backup-server-docker/`: local Docker clone of `backup-server01` with users, permissions and backup directories recreated from the audit.

@@ -1,0 +1,17 @@
+services:
+  backup-server-docker:
+    build:
+      context: .
+    container_name: backup-server-docker
+    hostname: backup-server01
+    environment:
+      BACKUP_SERVER_ROOT: /
+      BACKUP_SERVER_SEED_DATE: "2026-07-03"
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./state/home/administrador:/home/administrador
+      - ./state/home/backup_adm:/home/backup_adm
+      - ./state/mnt/backup:/mnt/backup
+      - ./state/mnt/backup_adm:/mnt/backup_adm
+    command: ["bash"]

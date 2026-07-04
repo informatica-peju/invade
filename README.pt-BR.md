@@ -32,6 +32,7 @@ Docker foi usado para simplificar aquisição e execução das ferramentas:
 - `data/raw/`: saídas brutas dos comandos
 - `reports/`: relatórios gerados
 - `backups/`: área local de backup (ignorada, exceto `.gitkeep`)
+- `backup-server-docker/`: clone Docker local do `backup-server01` com usuários, permissões e diretórios recriados
 
 ## Início rápido
 1. Instalar Docker, preparar `.env` e o inventário local:
